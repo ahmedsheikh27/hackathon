@@ -1,0 +1,178 @@
+# tools.py
+from agents import function_tool
+from database import SessionLocal
+from models import Student
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+from faq_data import FAQS
+
+
+# ---------- DB Helper Functions (for internal use) ----------
+def db_get_total_students(db: Session) -> int:
+    return db.query(Student).count()
+
+def db_get_recent_students(db: Session, limit: int = 5):
+    return db.query(Student).order_by(Student.created_at.desc()).limit(limit).all()
+
+
+# ---------- CRUD TOOLS ----------
+@function_tool
+def add_student(id: str, name: str, department: str = None, email: str = None) -> dict:
+    """Add a new student"""
+    db = SessionLocal()
+    try:
+        student = Student(id=id, name=name, department=department, email=email)
+        db.add(student)
+        db.commit()
+        db.refresh(student)
+        return {
+            "status": "success",
+            "student": {
+                "id": student.id,
+                "name": student.name,
+                "department": student.department,
+                "email": student.email
+            }
+        }
+    finally:
+        db.close()
+
+
+@function_tool
+def get_student(id: str) -> dict:
+    """Fetch student by ID"""
+    db = SessionLocal()
+    try:
+        student = db.query(Student).filter(Student.id == id).first()
+        if not student:
+            return {"status": "error", "message": "Student not found"}
+        return {
+            "id": student.id,
+            "name": student.name,
+            "department": student.department,
+            "email": student.email
+        }
+    finally:
+        db.close()
+
+
+@function_tool
+def update_student(id: str, field: str, value: str) -> dict:
+    """Update a student field"""
+    db = SessionLocal()
+    try:
+        student = db.query(Student).filter(Student.id == id).first()
+        if not student:
+            return {"status": "error", "message": "Student not found"}
+        setattr(student, field, value)
+        db.commit()
+        db.refresh(student)
+        return {
+            "status": "success",
+            "student": {
+                "id": student.id,
+                "name": student.name,
+                "department": student.department,
+                "email": student.email
+            }
+        }
+    finally:
+        db.close()
+
+
+@function_tool
+def delete_student(id: str) -> dict:
+    """Delete student by ID"""
+    db = SessionLocal()
+    try:
+        student = db.query(Student).filter(Student.id == id).first()
+        if not student:
+            return {"status": "error", "message": "Student not found"}
+        db.delete(student)
+        db.commit()
+        return {"status": "success", "message": f"Deleted student {id}"}
+    finally:
+        db.close()
+
+
+@function_tool
+def list_students(limit: int = 10) -> dict:
+    """List students"""
+    db = SessionLocal()
+    try:
+        students = db.query(Student).limit(limit).all()
+        return {
+            "students": [
+                {"id": s.id, "name": s.name, "department": s.department, "email": s.email}
+                for s in students
+            ]
+        }
+    finally:
+        db.close()
+
+
+# ---------- ANALYTICS ----------
+@function_tool
+def get_total_students() -> dict:
+    """Get total student count"""
+    db = SessionLocal()
+    try:
+        count = db.query(Student).count()
+        return {"total_students": count}
+    finally:
+        db.close()
+
+
+@function_tool
+def get_students_by_department() -> dict:
+    """Get student count grouped by department"""
+    db = SessionLocal()
+    try:
+        result = db.query(Student.department, func.count(Student.id)).group_by(Student.department).all()
+        return {
+            "by_department": [{"department": dept, "count": count} for dept, count in result]
+        }
+    finally:
+        db.close()
+
+
+@function_tool
+def get_recent_onboarded(limit: int = 5) -> dict:
+    """Get recent onboarded students"""
+    db = SessionLocal()
+    try:
+        students = db.query(Student).order_by(Student.created_at.desc()).limit(limit).all()
+        return {
+            "recent_students": [
+                {"id": s.id, "name": s.name, "department": s.department, "email": s.email}
+                for s in students
+            ]
+        }
+    finally:
+        db.close()
+
+
+# ---------- NOTIFICATION ----------
+@function_tool
+def send_email(student_id: str, message: str) -> dict:
+    """Mock sending email to a student (replace with real SMTP later)"""
+    db = SessionLocal()
+    try:
+        student = db.query(Student).filter(Student.id == student_id).first()
+        if not student or not student.email:
+            return {"status": "error", "message": "No email found"}
+        print(f"[MOCK EMAIL] To {student.email} | {message}")
+        return {"status": "sent", "to": student.email, "message": message}
+    finally:
+        db.close()
+
+
+# ---------- FAQ TOOL ----------
+@function_tool
+def faq_tool(question: str) -> str:
+    """Answer admin FAQs about how to use tools and manage students."""
+    q = question.lower().strip()
+    for key, answer in FAQS.items():
+        if key in q:  # simple keyword match
+            return f"📘 FAQ: {answer}"
+    return "⚠️ No matching FAQ found. Try rephrasing your question."
