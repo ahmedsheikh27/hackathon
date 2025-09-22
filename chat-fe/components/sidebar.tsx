@@ -38,24 +38,26 @@ export default function Sidebar() {
       <Button
         variant="ghost"
         size="sm"
-        className="fixed top-4 left-4 z-50 md:hidden"
+        className="fixed top-[65px] z-50 md:hidden"
         onClick={() => setIsOpen(!isOpen)}
       >
-        {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        {isOpen ? null : 
+          <Menu className="w-8 h-8" />
+        }
       </Button>
 
       {/* Sidebar */}
       <div
         className={`
-        fixed inset-y-0 left-0 z-40 w-64 bg-card border-r border-border transform transition-transform duration-200 ease-in-out
-        ${isOpen ? "translate-x-0" : "-translate-x-full"}
-        md:translate-x-0 md:static md:inset-0
-      `}
+          fixed inset-y-0 left-0 z-40 w-64 bg-card border-r border-border transform transition-transform duration-200 ease-in-out
+          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+          md:translate-x-0 md:static md:inset-0
+        `}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="p-6 border-b border-border">
-            <div className="flex items-center gap-3">
+          <div className="p-4 border-b border-border">
+            <div className="flex items-center gap-5">
               <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
                 <GraduationCap className="w-5 h-5 text-primary-foreground" />
               </div>
@@ -67,16 +69,18 @@ export default function Sidebar() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2">
+          <nav className="flex-1 p-4 space-y-4">
             {navigation.map((item) => {
               const isActive = pathname === item.href
               return (
                 <Link key={item.name} href={item.href} onClick={() => setIsOpen(false)}>
                   <Card
                     className={`
-                    p-4 cursor-pointer transition-all duration-200 hover:bg-accent/50
-                    ${isActive ? "bg-primary text-primary-foreground shadow-md" : "bg-transparent hover:bg-accent"}
-                  `}
+                      p-4 cursor-pointer transition-all duration-200 mb-5
+                      ${isActive
+                        ? "bg-primary text-primary-foreground shadow-md"
+                        : "bg-transparent hover:bg-accent/50"}
+                    `}
                   >
                     <div className="flex items-center gap-3">
                       <item.icon

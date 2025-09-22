@@ -185,6 +185,7 @@ export default function ChatPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              Select Chat Mode:
               <Button
                 variant={streamingMode ? "default" : "outline"}
                 size="sm"
@@ -265,7 +266,7 @@ export default function ChatPage() {
               ))
             )}
 
-            {(isLoading || isStreaming) && (
+            {(isLoading || isStreaming) && !streamingMode && (
               <div className="flex gap-3 justify-start">
                 <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-1">
                   <Bot className="w-4 h-4 text-muted-foreground" />
@@ -277,16 +278,17 @@ export default function ChatPage() {
                       <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                       <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {isStreaming ? "Streaming..." : "Thinking..."}
-                    </span>
-                    {isStreaming && (
-                      <Button variant="ghost" size="sm" onClick={stopStreaming} className="h-6 px-2 text-xs">
-                        Stop
-                      </Button>
-                    )}
+                    <span className="text-xs text-muted-foreground">Thinking...</span>
                   </div>
                 </Card>
+              </div>
+            )}
+
+            {isStreaming && streamingMode && (
+              <div className="flex justify-center">
+                <Button variant="outline" size="sm" onClick={stopStreaming} className="gap-2 bg-transparent">
+                  Stop Streaming
+                </Button>
               </div>
             )}
 

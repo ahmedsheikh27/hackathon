@@ -1,11 +1,28 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, Search, Mail, Phone, MapPin, Calendar, GraduationCap, Filter } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import {
+  Users,
+  Search,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  GraduationCap,
+  Filter,
+  Plus,
+  Edit,
+  Trash2,
+  RefreshCw,
+} from "lucide-react"
 import axios from "axios"
 
 interface Student {
@@ -19,6 +36,15 @@ interface Student {
   created_at?: string
 }
 
+interface StudentFormData {
+  name: string
+  email: string
+  phone: string
+  department: string
+  year: number
+  address: string
+}
+
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
@@ -26,6 +52,19 @@ export default function StudentsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDepartment, setSelectedDepartment] = useState("all")
   const [error, setError] = useState<string | null>(null)
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const [formData, setFormData] = useState<StudentFormData>({
+    name: "",
+    email: "",
+    phone: "",
+    department: "",
+    year: 1,
+    address: "",
+  })
 
   const departments = ["all", "Computer Science", "Engineering", "Business", "Arts", "Science"]
 
@@ -40,8 +79,8 @@ export default function StudentsPage() {
   const fetchStudents = async () => {
     try {
       setIsLoading(true)
-      const response = await axios.get("http://localhost:8000/analytics")
-      setStudents(response.data)
+      const response = await axios.get("http://localhost:8000/students")
+      setStudents(response.data.students || [])
       setError(null)
     } catch (error) {
       console.error("Error fetching students:", error)
@@ -70,6 +109,68 @@ export default function StudentsPage() {
     }
 
     setFilteredStudents(filtered)
+  }
+
+  const handleAddStudent = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    try {
+      await axios.post("http://localhost:8000/students", formData)
+      setIsAddDialogOpen(false)
+      setFormData({ name: "", email: "", phone: "", department: "", year: 1, address: "" })
+      fetchStudents()
+    } catch (error) {
+      console.error("Error adding student:", error)
+      setError("Failed to add student. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleEditStudent = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingStudent) return
+
+    setIsSubmitting(true)
+
+    try {
+      await axios.put(`http://localhost:8000/students/${editingStudent.id}`, formData)
+      setIsEditDialogOpen(false)
+      setEditingStudent(null)
+      setFormData({ name: "", email: "", phone: "", department: "", year: 1, address: "" })
+      fetchStudents()
+    } catch (error) {
+      console.error("Error updating student:", error)
+      setError("Failed to update student. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteStudent = async (studentId: string) => {
+    if (!confirm("Are you sure you want to delete this student?")) return
+
+    try {
+      await axios.delete(`http://localhost:8000/students/${studentId}`)
+      fetchStudents()
+    } catch (error) {
+      console.error("Error deleting student:", error)
+      setError("Failed to delete student. Please try again.")
+    }
+  }
+
+  const openEditDialog = (student: Student) => {
+    setEditingStudent(student)
+    setFormData({
+      name: student.name,
+      email: student.email,
+      phone: student.phone || "",
+      department: student.department || "",
+      year: student.year || 1,
+      address: student.address || "",
+    })
+    setIsEditDialogOpen(true)
   }
 
   const formatDate = (dateString?: string) => {
@@ -136,19 +237,110 @@ export default function StudentsPage() {
             </div>
             <div>
               <h1 className="text-2xl font-semibold text-foreground">All Students</h1>
-              <p className="text-muted-foreground">
-                {filteredStudents.length} of {students.length} students
-              </p>
             </div>
           </div>
-          <Button onClick={fetchStudents} variant="outline" size="sm">
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Student
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Student</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleAddStudent} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="name">Name *</Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="email">Email *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input
+                        id="phone"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="department">Department</Label>
+                      <select
+                        id="department"
+                        value={formData.department}
+                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                        className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                      >
+                        <option value="">Select Department</option>
+                        {departments.slice(1).map((dept) => (
+                          <option key={dept} value={dept}>
+                            {dept}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="year">Year</Label>
+                      <Input
+                        id="year"
+                        type="number"
+                        min="1"
+                        max="4"
+                        value={formData.year}
+                        onChange={(e) => setFormData({ ...formData, year: Number.parseInt(e.target.value) })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="address">Address</Label>
+                      <Input
+                        id="address"
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? "Adding..." : "Add Student"}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+            <Button onClick={fetchStudents} variant="outline" size="sm" className="gap-2 bg-transparent">
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </Button>
+          </div>
         </div>
       </header>
 
       {/* Filters */}
-      <div className="border-b border-border bg-card/30 p-4">
+      <div className="border-b border-border mt-8 bg-card/30 p-4">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -210,6 +402,19 @@ export default function StudentsPage() {
                       )}
                     </div>
                   </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => openEditDialog(student)} className="h-8 w-8 p-0">
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteStudent(student.id)}
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
@@ -250,6 +455,93 @@ export default function StudentsPage() {
           </div>
         )}
       </main>
+
+      {/* Edit Student Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Student</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditStudent} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-name">Name *</Label>
+                <Input
+                  id="edit-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-email">Email *</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-phone">Phone</Label>
+                <Input
+                  id="edit-phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-department">Department</Label>
+                <select
+                  id="edit-department"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                >
+                  <option value="">Select Department</option>
+                  {departments.slice(1).map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-year">Year</Label>
+                <Input
+                  id="edit-year"
+                  type="number"
+                  min="1"
+                  max="4"
+                  value={formData.year}
+                  onChange={(e) => setFormData({ ...formData, year: Number.parseInt(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-address">Address</Label>
+                <Input
+                  id="edit-address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Updating..." : "Update Student"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

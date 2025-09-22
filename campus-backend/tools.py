@@ -1,10 +1,10 @@
-# tools.py
 from agents import function_tool
 from database import SessionLocal
-from models import Student
+from models import Student, ActivityLog
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from faq_data import FAQS
+from datetime import datetime, timedelta
 
 
 # ---------- DB Helper Functions (for internal use) ----------
@@ -111,7 +111,7 @@ def list_students(limit: int = 10) -> dict:
         db.close()
 
 
-# ---------- ANALYTICS ----------
+# ---------- ANALYTICS TOOLS ----------
 @function_tool
 def get_total_students() -> dict:
     """Get total student count"""
@@ -137,8 +137,8 @@ def get_students_by_department() -> dict:
 
 
 @function_tool
-def get_recent_onboarded(limit: int = 5) -> dict:
-    """Get recent onboarded students"""
+def get_last_added_students(limit: int = 5) -> dict:
+    """Get the last N onboarded students"""
     db = SessionLocal()
     try:
         students = db.query(Student).order_by(Student.created_at.desc()).limit(limit).all()
@@ -146,6 +146,23 @@ def get_recent_onboarded(limit: int = 5) -> dict:
             "recent_students": [
                 {"id": s.id, "name": s.name, "department": s.department, "email": s.email}
                 for s in students
+            ]
+        }
+    finally:
+        db.close()
+
+
+@function_tool
+def get_active_students(days: int = 7) -> dict:
+    """Get students active in the last N days"""
+    db = SessionLocal()
+    try:
+        since = datetime.utcnow() - timedelta(days=days)
+        logs = db.query(ActivityLog).filter(ActivityLog.timestamp >= since).all()
+        return {
+            "active_students": [
+                {"student_id": log.student_id, "action": log.action, "timestamp": str(log.timestamp)}
+                for log in logs
             ]
         }
     finally:
