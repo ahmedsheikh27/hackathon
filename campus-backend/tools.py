@@ -3,8 +3,40 @@ from database import SessionLocal
 from models import Student, ActivityLog
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from faq_data import FAQS
 from datetime import datetime, timedelta
+
+# --- Import FAISS + Embeddings for RAG ---
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+import os
+
+# Load the saved FAISS vectorstore
+embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/multi-qa-distilbert-cos-v1")
+vectorstore = FAISS.load_local("orca_vectorstore", embedding, allow_dangerous_deserialization=True)
+
+
+# ---------- RAG FAQ TOOL ----------
+@function_tool
+def faq_rag_tool(question: str) -> str:
+    """
+    Answer FAQs from the stored PDF (converted_text.pdf) using vector search.
+    """
+    if not question.strip():
+        return "⚠️ Please provide a valid question."
+
+    try:
+        docs = vectorstore.similarity_search(question, k=3)
+        if not docs:
+            return "⚠️ No relevant FAQ found in the knowledge base."
+
+        # Combine top docs into a context
+        context = "\n\n".join([d.page_content for d in docs])
+
+        return f"📘 Based on our guide:\n{context}"
+
+    except Exception as e:
+        return f"⚠️ Error retrieving FAQ: {str(e)}"
+
 
 
 # ---------- DB Helper Functions (for internal use) ----------
@@ -183,13 +215,3 @@ def send_email(student_id: str, message: str) -> dict:
     finally:
         db.close()
 
-
-# ---------- FAQ TOOL ----------
-@function_tool
-def faq_tool(question: str) -> str:
-    """Answer admin FAQs about how to use tools and manage students."""
-    q = question.lower().strip()
-    for key, answer in FAQS.items():
-        if key in q:  # simple keyword match
-            return f"📘 FAQ: {answer}"
-    return "⚠️ No matching FAQ found. Try rephrasing your question."

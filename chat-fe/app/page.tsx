@@ -1,13 +1,20 @@
 "use client"
 
-import type React from "react"
-import { BarChart3, Users } from "lucide-react" // Import BarChart3 and Users icons
-
-import { useState, useRef, useEffect } from "react"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+
 import { Card } from "@/components/ui/card"
-import { Send, Bot, User, Zap, MessageCircle, UserPlus } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+
+import { useEffect } from "react"
+
+import { useRef } from "react"
+
+import { useState } from "react"
+
+import type React from "react"
+import { BarChart3, Users, UserPlus, HelpCircle } from "lucide-react" // Import BarChart3, Users, and UserPlus icons
+import { Bot, User, Zap, MessageCircle } from "lucide-react"
 import axios from "axios"
 
 interface Message {
@@ -86,6 +93,7 @@ export default function ChatPage() {
     let accumulatedContent = ""
 
     try {
+      console.log("[v0] Starting streaming chat request")
       const response = await fetch("http://localhost:8000/chat/stream", {
         method: "POST",
         headers: {
@@ -111,19 +119,32 @@ export default function ChatPage() {
         const { done, value } = await reader.read()
 
         if (done) {
+          console.log("[v0] Streaming completed")
           setIsStreaming(false)
           break
         }
 
         const chunk = decoder.decode(value, { stream: true })
+        console.log("[v0] Received chunk:", chunk)
 
         const lines = chunk.split("\n")
         for (const line of lines) {
           if (line.startsWith("data: ")) {
-            const data = line.slice(6)
-            if (data.trim() && data !== "[DONE]") {
+            const data = line.slice(6).trim()
+            console.log("[v0] Processing data:", data)
+
+            if (data && data !== "[DONE]") {
               accumulatedContent += data
+              console.log("[v0] Accumulated content:", accumulatedContent)
               updateMessage(messageId, accumulatedContent)
+
+              setTimeout(() => {
+                scrollToBottom()
+              }, 0)
+            } else if (data === "[DONE]") {
+              console.log("[v0] Stream completed with [DONE]")
+              setIsStreaming(false)
+              break
             }
           }
         }
@@ -160,6 +181,7 @@ export default function ChatPage() {
     { label: "Add Student", message: "I want to add a new student", icon: UserPlus },
     { label: "View Statistics", message: "Show me student statistics", icon: BarChart3 },
     { label: "List Students", message: "Show me all students", icon: Users },
+    { label: "Ask About Saylani", message: "Tell me about Saylani", icon: HelpCircle },
   ]
 
   const handleQuickAction = (message: string) => {
@@ -185,7 +207,6 @@ export default function ChatPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              Select Chat Mode:
               <Button
                 variant={streamingMode ? "default" : "outline"}
                 size="sm"
@@ -247,14 +268,27 @@ export default function ChatPage() {
                       message.isUser ? "bg-primary text-primary-foreground ml-12" : "bg-card text-card-foreground mr-12"
                     }`}
                   >
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
-                    <p
-                      className={`text-xs mt-2 opacity-70 ${
-                        message.isUser ? "text-primary-foreground/70" : "text-muted-foreground"
-                      }`}
-                    >
-                      {message.timestamp.toLocaleTimeString()}
-                    </p>
+                    {message.content === "" && isStreaming && !message.isUser ? (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                          <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                          <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
+                        </div>
+                        <span className="text-xs">Receiving response...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                        <p
+                          className={`text-xs mt-2 opacity-70 ${
+                            message.isUser ? "text-primary-foreground/70" : "text-muted-foreground"
+                          }`}
+                        >
+                          {message.timestamp.toLocaleTimeString()}
+                        </p>
+                      </>
+                    )}
                   </Card>
 
                   {message.isUser && (
@@ -301,12 +335,12 @@ export default function ChatPage() {
               <Input
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Ask me to add students, view analytics, or manage records..."
+                placeholder="Ask me about institue, add students, view analytics, or manage records..."
                 disabled={isLoading || isStreaming}
                 className="flex-1"
               />
               <Button type="submit" disabled={!inputMessage.trim() || isLoading || isStreaming} className="gap-2">
-                <Send className="w-4 h-4" />
+                <Bot className="w-4 h-4" />
                 Send
               </Button>
             </form>
